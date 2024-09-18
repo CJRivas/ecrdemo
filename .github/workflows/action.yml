@@ -1,0 +1,54 @@
+name: '🐱📦 Tomcat: Base' 
+ 
+on:  
+  workflow_dispatch: 
+    inputs: 
+      tomcat_version: 
+        description: 'Tomcat Image to use'      
+        required: true 
+        default: '8.5.59-jdk8-openjdk-buster' 
+ 
+run-name: "🐱 ${{ github.workflow }} - 🌿 Branch: @${{ github.ref_name }} | 🛠️ Build: @${{ inputs.build_deploy_choice }} | 🌐 Environment: @${{ inputs.environment }} | by @${{ github.actor }}" 
+ 
+jobs: 
+ 
+  build: 
+     
+    name: 🛠️ Build Image 
+    runs-on: ubuntu-latest 
+ 
+    permissions: 
+      id-token: write 
+      contents: read 
+ 
+    steps: 
+ 
+    - name: 📥 Check out code 
+      uses: actions/checkout@v3 
+     
+    - name: 🛠️ Configure AWS credentials 
+      uses: aws-actions/configure-aws-credentials@v3 
+      with: 
+        aws-region: us-west-2 
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        
+    - name: 🚪 Login to Amazon ECR 
+      id: login-ecr 
+      uses: aws-actions/amazon-ecr-login@v1 
+       
+    - name: 📅 Date formatted for Image Tagging 
+      id: fmtDate 
+      run: | 
+        echo "FMT_DATE=$(date +%Y%m%d%H%M)" >> $GITHUB_ENV 
+ 
+    - name: 🏗️ Build, tag, and push image to Amazon ECR 
+      env: 
+        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }} 
+        ECR_REPOSITORY: tomcat-base 
+        IMAGE_TAG: ${{github.run_number}}
+        BASE_IMAGE_VERSION: ${{ github.event.inputs.tomcat_version }} 
+      run: | 
+        echo $IMAGE_TAG 
+        docker build --build-arg BASE_IMAGE_VERSION=$BASE_IMAGE_VERSION -t $ECR_REGISTRY/$ECR_REPOSITORY:$ENV_TAG -t $ECR_REGISTRY/$ECR_REPOSITORY:$BASE_IMAGE_VERSION-$IMAGE_TAG . 
+        docker push $ECR_REGISTRY/$ECR_REPOSITORY:$BASE_IMAGE_VERSION
